@@ -1,7 +1,11 @@
+/*
+ * Copyright (c) 2026 . All rights reserved.
+ */
+
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const API_URL = process.env.REACT_APP_API_URL || 'http://54.226.183.46:8080';
 
 function App() {
   const [usuarios, setUsuarios] = useState([]);
@@ -9,14 +13,12 @@ function App() {
   const [transacciones, setTransacciones] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Formulario nuevo usuario
   const [nuevoUsuario, setNuevoUsuario] = useState({
     nombre: '',
     email: '',
     saldo: 0
   });
 
-  // Formulario nueva transacción
   const [nuevaTransaccion, setNuevaTransaccion] = useState({
     tipo: 'ingreso',
     monto: 0,
@@ -35,8 +37,9 @@ function App() {
       setUsuarios(data);
     } catch (error) {
       console.error('Error al cargar usuarios:', error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const crearUsuario = async (e) => {
@@ -45,12 +48,19 @@ function App() {
       const response = await fetch(`${API_URL}/api/usuarios`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nuevoUsuario)
+        body: JSON.stringify({
+          nombre: nuevoUsuario.nombre,
+          email: nuevoUsuario.email
+        })
       });
+
       if (response.ok) {
+        const usuarioCreado = await response.json();
         setNuevoUsuario({ nombre: '', email: '', saldo: 0 });
-        cargarUsuarios();
+        setUsuarios((prev) => [...prev, usuarioCreado]);
         alert('Usuario creado exitosamente');
+      } else {
+        console.error('Error en la respuesta del servidor');
       }
     } catch (error) {
       console.error('Error al crear usuario:', error);
@@ -74,6 +84,7 @@ function App() {
       alert('Seleccione un usuario primero');
       return;
     }
+
     try {
       const response = await fetch(`${API_URL}/api/transacciones`, {
         method: 'POST',
@@ -83,11 +94,14 @@ function App() {
           ...nuevaTransaccion
         })
       });
+
       if (response.ok) {
         setNuevaTransaccion({ tipo: 'ingreso', monto: 0, descripcion: '' });
         cargarUsuarios();
         seleccionarUsuario(selectedUser);
         alert('Transacción registrada exitosamente');
+      } else {
+        console.error('Error en la respuesta del servidor');
       }
     } catch (error) {
       console.error('Error al crear transacción:', error);
@@ -109,21 +123,23 @@ function App() {
               type="text"
               placeholder="Nombre completo"
               value={nuevoUsuario.nombre}
-              onChange={(e) => setNuevoUsuario({...nuevoUsuario, nombre: e.target.value})}
+              onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, nombre: e.target.value })}
               required
             />
             <input
               type="email"
               placeholder="Email"
               value={nuevoUsuario.email}
-              onChange={(e) => setNuevoUsuario({...nuevoUsuario, email: e.target.value})}
+              onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, email: e.target.value })}
               required
             />
             <input
               type="number"
               placeholder="Saldo inicial"
               value={nuevoUsuario.saldo}
-              onChange={(e) => setNuevoUsuario({...nuevoUsuario, saldo: parseFloat(e.target.value)})}
+              onChange={(e) =>
+                setNuevoUsuario({ ...nuevoUsuario, saldo: parseFloat(e.target.value) || 0 })
+              }
             />
             <button type="submit">Crear Usuario</button>
           </form>
@@ -131,17 +147,19 @@ function App() {
 
         <div className="section">
           <h2>📋 Lista de Usuarios</h2>
-          {loading ? <p>Cargando...</p> : (
+          {loading ? (
+            <p>Cargando...</p>
+          ) : (
             <div className="usuarios-grid">
-              {usuarios.map(usuario => (
-                <div 
-                  key={usuario.id} 
+              {usuarios.map((usuario) => (
+                <div
+                  key={usuario.id}
                   className={`usuario-card ${selectedUser?.id === usuario.id ? 'selected' : ''}`}
                   onClick={() => seleccionarUsuario(usuario)}
                 >
                   <h3>{usuario.nombre}</h3>
                   <p>📧 {usuario.email}</p>
-                  <p className="saldo">💵 ${parseFloat(usuario.saldo).toFixed(2)}</p>
+                  <p className="saldo">💵 ${parseFloat(usuario.saldo || 0).toFixed(2)}</p>
                 </div>
               ))}
             </div>
@@ -155,7 +173,9 @@ function App() {
               <form onSubmit={crearTransaccion}>
                 <select
                   value={nuevaTransaccion.tipo}
-                  onChange={(e) => setNuevaTransaccion({...nuevaTransaccion, tipo: e.target.value})}
+                  onChange={(e) =>
+                    setNuevaTransaccion({ ...nuevaTransaccion, tipo: e.target.value })
+                  }
                 >
                   <option value="ingreso">Ingreso</option>
                   <option value="egreso">Egreso</option>
@@ -165,14 +185,24 @@ function App() {
                   step="0.01"
                   placeholder="Monto"
                   value={nuevaTransaccion.monto}
-                  onChange={(e) => setNuevaTransaccion({...nuevaTransaccion, monto: parseFloat(e.target.value)})}
+                  onChange={(e) =>
+                    setNuevaTransaccion({
+                      ...nuevaTransaccion,
+                      monto: parseFloat(e.target.value) || 0
+                    })
+                  }
                   required
                 />
                 <input
                   type="text"
                   placeholder="Descripción"
                   value={nuevaTransaccion.descripcion}
-                  onChange={(e) => setNuevaTransaccion({...nuevaTransaccion, descripcion: e.target.value})}
+                  onChange={(e) =>
+                    setNuevaTransaccion({
+                      ...nuevaTransaccion,
+                      descripcion: e.target.value
+                    })
+                  }
                   required
                 />
                 <button type="submit">Registrar Transacción</button>
@@ -185,10 +215,12 @@ function App() {
                 {transacciones.length === 0 ? (
                   <p>No hay transacciones registradas</p>
                 ) : (
-                  transacciones.map(trans => (
+                  transacciones.map((trans) => (
                     <div key={trans.id} className={`transaccion ${trans.tipo}`}>
-                      <span className="tipo">{trans.tipo === 'ingreso' ? '↑' : '↓'} {trans.tipo.toUpperCase()}</span>
-                      <span className="monto">${parseFloat(trans.monto).toFixed(2)}</span>
+                      <span className="tipo">
+                        {trans.tipo === 'ingreso' ? '↑' : '↓'} {trans.tipo.toUpperCase()}
+                      </span>
+                      <span className="monto">${parseFloat(trans.monto || 0).toFixed(2)}</span>
                       <span className="descripcion">{trans.descripcion}</span>
                       <span className="fecha">{new Date(trans.fecha).toLocaleString()}</span>
                     </div>
